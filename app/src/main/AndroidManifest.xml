@@ -1,5 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
+
     <application
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:label="ECHO"
@@ -16,8 +19,7 @@
             </intent-filter>
 
         </activity>
-<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
-<uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
+
     </application>
 
 </manifest>
