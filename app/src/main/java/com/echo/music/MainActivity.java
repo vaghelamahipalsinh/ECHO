@@ -2,163 +2,216 @@ package com.echo.music;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.graphics.Color;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.net.Uri;
+import android.provider.MediaStore;
+import android.media.MediaPlayer;
+import android.os.Build;
 import android.view.Gravity;
-import android.view.View;
 import android.widget.*;
+import android.graphics.Color;
+import java.util.ArrayList;
 
 public class MainActivity extends Activity {
 
-    LinearLayout mainLayout;
+    LinearLayout layout;
+    ArrayList<Uri> songs = new ArrayList<>();
+    MediaPlayer player;
+    TextView nowPlaying;
+    Button playButton;
+    int currentSong = -1;
 
-    int background = Color.rgb(10, 10, 18);
+    int bg = Color.rgb(10, 10, 18);
     int blue = Color.rgb(0, 180, 255);
-    int white = Color.WHITE;
-    int grey = Color.rgb(160, 160, 175);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        getWindow().setStatusBarColor(background);
-        getWindow().setNavigationBarColor(background);
+        getWindow().setStatusBarColor(bg);
+        getWindow().setNavigationBarColor(bg);
 
-        ScrollView scroll = new ScrollView(this);
+        layout = new LinearLayout(this);
+        layout.setOrientation(1);
+        layout.setPadding(20, 25, 20, 20);
+        layout.setBackgroundColor(bg);
 
-        mainLayout = new LinearLayout(this);
-        mainLayout.setOrientation(LinearLayout.VERTICAL);
-        mainLayout.setPadding(20, 25, 20, 20);
-        mainLayout.setBackgroundColor(background);
-
-        scroll.addView(mainLayout);
-
-        // HEADER
         TextView logo = new TextView(this);
-        logo.setText("ECHO");
+        logo.setText("ECHO 🎧");
         logo.setTextSize(32);
         logo.setTextColor(blue);
         logo.setTypeface(null, 1);
+        layout.addView(logo);
 
-        mainLayout.addView(logo);
+        TextView heading = new TextView(this);
+        heading.setText("YOUR MUSIC. YOUR WORLD.");
+        heading.setTextColor(Color.LTGRAY);
+        layout.addView(heading);
 
-        TextView greeting = new TextView(this);
-        greeting.setText("YOUR MUSIC. YOUR WORLD.");
-        greeting.setTextColor(grey);
-        greeting.setTextSize(12);
+        nowPlaying = new TextView(this);
+        nowPlaying.setText("No song playing");
+        nowPlaying.setTextColor(Color.WHITE);
+        nowPlaying.setTextSize(18);
+        nowPlaying.setPadding(0, 30, 0, 15);
+        layout.addView(nowPlaying);
 
-        mainLayout.addView(greeting);
+        playButton = new Button(this);
+        playButton.setText("PAUSE");
+        playButton.setOnClickListener(v -> togglePlay());
+        layout.addView(playButton);
 
-        // SEARCH BAR
-        EditText search = new EditText(this);
-        search.setHint("Search songs, artists...");
-        search.setHintTextColor(grey);
-        search.setTextColor(white);
-        search.setSingleLine(true);
-        search.setPadding(18, 5, 18, 5);
-        search.setBackgroundColor(Color.rgb(30, 30, 42));
+        TextView title = new TextView(this);
+        title.setText("MY MUSIC");
+        title.setTextColor(blue);
+        title.setTextSize(23);
+        title.setPadding(0, 30, 0, 15);
+        layout.addView(title);
 
-        LinearLayout.LayoutParams searchParams =
-            new LinearLayout.LayoutParams(
-                -1, 55
-            );
-
-        searchParams.setMargins(0, 25, 0, 25);
-        mainLayout.addView(search, searchParams);
-
-        // SECTION TITLE
-        addTitle("Discover Music");
-
-        // CATEGORIES
-        addCategory("All");
-        addCategory("Trending");
-        addCategory("Pop");
-        addCategory("Rock");
-        addCategory("Chill");
-
-        // FEATURED
-        addTitle("Featured");
-
-        TextView featured = new TextView(this);
-        featured.setText(
-            "🎧  YOUR DAILY MIX\n\n" +
-            "Discover music made for you.\n\n" +
-            "EXPLORE  →"
-        );
-
-        featured.setTextColor(white);
-        featured.setTextSize(20);
-        featured.setPadding(22, 25, 22, 25);
-        featured.setBackgroundColor(Color.rgb(15, 65, 100));
-
-        mainLayout.addView(featured);
-
-        // SONGS
-        addTitle("Popular Songs");
-
-        addSong("🎵  Midnight Dreams", "ECHO Music");
-        addSong("🎵  Lost In The Stars", "ECHO Music");
-        addSong("🎵  Ocean Lights", "ECHO Music");
-        addSong("🎵  Endless Memories", "ECHO Music");
-
-        // BOTTOM NAVIGATION
-        addTitle("HOME       SEARCH       LIBRARY");
-
-        TextView footer = new TextView(this);
-        footer.setText("Made with ♥ by ECHO");
-        footer.setTextColor(grey);
-        footer.setGravity(Gravity.CENTER);
-        footer.setPadding(0, 30, 0, 20);
-
-        mainLayout.addView(footer);
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(layout);
 
         setContentView(scroll);
+
+        checkPermission();
     }
 
-    void addTitle(String text) {
-        TextView title = new TextView(this);
-        title.setText(text);
-        title.setTextSize(21);
-        title.setTextColor(white);
-        title.setTypeface(null, 1);
-        title.setPadding(0, 25, 0, 15);
+    void checkPermission() {
+        String permission;
 
-        mainLayout.addView(title);
+        if (Build.VERSION.SDK_INT >= 33) {
+            permission = Manifest.permission.READ_MEDIA_AUDIO;
+        } else {
+            permission = Manifest.permission.READ_EXTERNAL_STORAGE;
+        }
+
+        if (checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED) {
+            loadSongs();
+        } else {
+            requestPermissions(new String[]{permission}, 100);
+        }
     }
 
-    void addCategory(String name) {
-        TextView category = new TextView(this);
-        category.setText(name);
-        category.setTextColor(blue);
-        category.setTextSize(15);
-        category.setPadding(12, 10, 12, 10);
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+            String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
 
-        mainLayout.addView(category);
+        if (requestCode == 100 && results.length > 0
+                && results[0] == PackageManager.PERMISSION_GRANTED) {
+            loadSongs();
+        } else {
+            Toast.makeText(this, "Music permission required",
+                    Toast.LENGTH_LONG).show();
+        }
     }
 
-    void addSong(String name, String artist) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.VERTICAL);
-        row.setPadding(15, 15, 15, 15);
-        row.setBackgroundColor(Color.rgb(24, 24, 36));
+    void loadSongs() {
+        songs.clear();
 
-        TextView song = new TextView(this);
-        song.setText(name);
-        song.setTextColor(white);
-        song.setTextSize(17);
+        String[] projection = {
+            MediaStore.Audio.Media._ID,
+            MediaStore.Audio.Media.TITLE,
+            MediaStore.Audio.Media.ARTIST
+        };
 
-        TextView singer = new TextView(this);
-        singer.setText(artist);
-        singer.setTextColor(grey);
-        singer.setTextSize(13);
+        String selection = MediaStore.Audio.Media.IS_MUSIC + " != 0";
 
-        row.addView(song);
-        row.addView(singer);
+        Cursor cursor = getContentResolver().query(
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+            projection, selection, null,
+            MediaStore.Audio.Media.TITLE + " ASC"
+        );
 
-        LinearLayout.LayoutParams params =
-            new LinearLayout.LayoutParams(-1, -2);
+        if (cursor != null) {
+            while (cursor.moveToNext()) {
+                long id = cursor.getLong(0);
+                String name = cursor.getString(1);
+                String artist = cursor.getString(2);
 
-        params.setMargins(0, 5, 0, 5);
+                Uri uri = Uri.withAppendedPath(
+                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                    String.valueOf(id)
+                );
 
-        mainLayout.addView(row, params);
+                songs.add(uri);
+
+                TextView song = new TextView(this);
+                song.setText("🎵 " + name + "\n" + artist);
+                song.setTextColor(Color.WHITE);
+                song.setTextSize(17);
+                song.setPadding(15, 18, 15, 18);
+                song.setBackgroundColor(Color.rgb(24, 24, 36));
+
+                final int index = songs.size() - 1;
+                song.setOnClickListener(v -> playSong(index));
+
+                LinearLayout.LayoutParams params =
+                    new LinearLayout.LayoutParams(-1, -2);
+                params.setMargins(0, 5, 0, 5);
+
+                layout.addView(song, params);
+            }
+            cursor.close();
+        }
+
+        if (songs.isEmpty()) {
+            TextView empty = new TextView(this);
+            empty.setText("No music found on your phone.");
+            empty.setTextColor(Color.WHITE);
+            layout.addView(empty);
+        }
+    }
+
+    void playSong(int index) {
+        try {
+            if (player != null) {
+                player.release();
+                player = null;
+            }
+
+            player = new MediaPlayer();
+            player.setDataSource(this, songs.get(index));
+            player.setOnCompletionListener(mp -> {
+                int next = currentSong + 1;
+                if (next < songs.size()) {
+                    playSong(next);
+                }
+            });
+
+            player.prepare();
+            player.start();
+
+            currentSong = index;
+            nowPlaying.setText("🎵 Playing song " + (index + 1));
+            playButton.setText("PAUSE");
+
+        } catch (Exception e) {
+            Toast.makeText(this, "Cannot play this song",
+                    Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    void togglePlay() {
+        if (player == null) return;
+
+        if (player.isPlaying()) {
+            player.pause();
+            playButton.setText("PLAY");
+        } else {
+            player.start();
+            playButton.setText("PAUSE");
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        if (player != null) {
+            player.release();
+            player = null;
+        }
     }
 }
