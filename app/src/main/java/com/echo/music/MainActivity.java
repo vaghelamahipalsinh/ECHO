@@ -61,7 +61,15 @@ public class MainActivity extends Activity {
         playButton.setText("PAUSE");
         playButton.setOnClickListener(v -> togglePlay());
         layout.addView(playButton);
+Button previousButton = new Button(this);
+previousButton.setText("⏮ PREVIOUS");
+previousButton.setOnClickListener(v -> previousSong());
+layout.addView(previousButton);
 
+Button nextButton = new Button(this);
+nextButton.setText("NEXT ⏭");
+nextButton.setOnClickListener(v -> nextSong());
+layout.addView(nextButton);
         TextView title = new TextView(this);
         title.setText("MY MUSIC");
         title.setTextColor(blue);
@@ -193,6 +201,17 @@ public class MainActivity extends Activity {
         }
     }
 
+void nextSong() {
+    if (currentSong + 1 < songs.size()) {
+        playSong(currentSong + 1);
+    }
+}
+
+void previousSong() {
+    if (currentSong > 0) {
+        playSong(currentSong - 1);
+    }
+}
     void togglePlay() {
         if (player == null) return;
 
