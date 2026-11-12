@@ -22,7 +22,10 @@ public class MainActivity extends Activity {
     TextView nowPlaying;
     Button playButton;
     int currentSong = -1;
-
+SeekBar seekBar;
+TextView currentTime, totalTime;
+android.os.Handler handler = new android.os.Handler();
+Runnable progressUpdater;
     int bg = Color.rgb(10, 10, 18);
     int blue = Color.rgb(0, 180, 255);
 
@@ -70,8 +73,35 @@ Button nextButton = new Button(this);
 nextButton.setText("NEXT ⏭");
 nextButton.setOnClickListener(v -> nextSong());
 layout.addView(nextButton);
-        TextView title = new TextView(this);
-        title.setText("MY MUSIC");
+currentTime = new TextView(this);
+currentTime.setText("0:00");
+currentTime.setTextColor(Color.WHITE);
+layout.addView(currentTime);
+
+seekBar = new SeekBar(this);
+layout.addView(seekBar);
+
+totalTime = new TextView(this);
+totalTime.setText("0:00");
+totalTime.setTextColor(Color.WHITE);
+layout.addView(totalTime);        TextView title = new TextView(this);
+seekBar.setOnSeekBarChangeListener(
+    new SeekBar.OnSeekBarChangeListener() {
+        @Override
+        public void onProgressChanged(
+                SeekBar bar, int progress, boolean fromUser) {
+            if (fromUser && player != null) {
+                player.seekTo(progress);
+            }
+        }
+
+        @Override
+        public void onStartTrackingTouch(SeekBar bar) {}
+
+        @Override
+        public void onStopTrackingTouch(SeekBar bar) {}
+    }
+);        title.setText("MY MUSIC");
         title.setTextColor(blue);
         title.setTextSize(23);
         title.setPadding(0, 30, 0, 15);
@@ -190,7 +220,21 @@ layout.addView(nextButton);
 
             player.prepare();
             player.start();
+seekBar.setMax(player.getDuration());
+totalTime.setText(formatTime(player.getDuration()));
 
+progressUpdater = new Runnable() {
+    @Override
+    public void run() {
+        if (player != null && player.isPlaying()) {
+            seekBar.setProgress(player.getCurrentPosition());
+            currentTime.setText(formatTime(player.getCurrentPosition()));
+        }
+        handler.postDelayed(this, 500);
+    }
+};
+handler.removeCallbacks(progressUpdater);
+handler.post(progressUpdater);
             currentSong = index;
             nowPlaying.setText("🎵 Playing song " + (index + 1));
             playButton.setText("PAUSE");
@@ -201,6 +245,11 @@ layout.addView(nextButton);
         }
     }
 
+String formatTime(int milliseconds) {
+    int minutes = milliseconds / 60000;
+    int seconds = (milliseconds / 1000) % 60;
+    return String.format("%d:%02d", minutes, seconds);
+}
 void nextSong() {
     if (currentSong + 1 < songs.size()) {
         playSong(currentSong + 1);
@@ -226,7 +275,9 @@ void previousSong() {
 
     @Override
     protected void onDestroy() {
-        super.onDestroy();
+    if (progressUpdater != null) {
+    handler.removeCallbacks(progressUpdater);
+}    super.onDestroy();
 
         if (player != null) {
             player.release();
