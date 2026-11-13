@@ -894,6 +894,7 @@ updateSongInfo(currentSong);
 }
 // ECHO 7.0 NOW PLAYING SCREEN
 
+
 void searchAudiusMusic() {
     String query = onlineSearchInput.getText().toString().trim();
 
@@ -903,8 +904,9 @@ void searchAudiusMusic() {
     }
 
     onlineResultsLayout.removeAllViews();
+
     TextView loading = new TextView(this);
-    loading.setText("Searching Audius full tracks...");
+    loading.setText("Searching full songs...");
     loading.setTextColor(Color.WHITE);
     onlineResultsLayout.addView(loading);
 
@@ -912,53 +914,99 @@ void searchAudiusMusic() {
         ArrayList<String> titles = new ArrayList<>();
         ArrayList<String> artists = new ArrayList<>();
         ArrayList<String> ids = new ArrayList<>();
+        HashSet<String> seenIds = new HashSet<>();
 
-        try {
-            String encoded = URLEncoder.encode(query, "UTF-8");
-            URL url = new URL(
-                "https://discoveryprovider.audius.co/v1/tracks/search?query="
-                + encoded + "&limit=25"
-            );
+        ArrayList<String> queries = new ArrayList<>();
+        queries.add(query);
 
-            HttpURLConnection connection =
-                (HttpURLConnection) url.openConnection();
-            connection.setConnectTimeout(15000);
-            connection.setReadTimeout(15000);
+        String lower = query.toLowerCase();
 
-            BufferedReader reader = new BufferedReader(
-                new InputStreamReader(connection.getInputStream())
-            );
+        if (lower.contains("gujarati") || query.contains("ગુજરાતી")) {
+            String[] extraQueries = {
+                "Gujarati songs",
+                "ગુજરાતી ગીતો",
+                "Gujarati love song",
+                "Gujarati romantic songs",
+                "Gujarati sad songs",
+                "Gujarati folk",
+                "Gujarati DJ",
+                "Garba",
+                "Gujarati bhajan",
+                "Gujarati old songs",
+                "Gujarati new songs"
+            };
 
-            StringBuilder response = new StringBuilder();
-            String line;
-
-            while ((line = reader.readLine()) != null) {
-                response.append(line);
+            for (String q : extraQueries) {
+                queries.add(q);
             }
+        }
 
-            reader.close();
-            connection.disconnect();
+        for (String searchQuery : queries) {
+            HttpURLConnection connection = null;
 
-            JSONObject json = new JSONObject(response.toString());
-            JSONArray results = json.getJSONArray("data");
+            try {
+                String encoded = URLEncoder.encode(searchQuery, "UTF-8");
 
-            for (int i = 0; i < results.length(); i++) {
-                JSONObject track = results.getJSONObject(i);
+                URL url = new URL(
+                    "https://discoveryprovider.audius.co/v1/tracks/search?query="
+                    + encoded + "&limit=25"
+                );
 
-                if ("false".equalsIgnoreCase(track.optString("is_streamable", "true"))) continue;
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setConnectTimeout(7000);
+                connection.setReadTimeout(7000);
+                connection.setRequestProperty("User-Agent", "ECHO-Music-App");
 
-                titles.add(track.optString("title", "Unknown"));
-                artists.add(track.optJSONObject("user") != null
-                    ? track.getJSONObject("user").optString("name", "Audius Artist")
-                    : "Audius Artist");
-                ids.add(track.optString("track_id"));
+                BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(connection.getInputStream())
+                );
+
+                StringBuilder response = new StringBuilder();
+                String line;
+
+                while ((line = reader.readLine()) != null) {
+                    response.append(line);
+                }
+
+                reader.close();
+
+                JSONObject json = new JSONObject(response.toString());
+                JSONArray results = json.getJSONArray("data");
+
+                for (int i = 0; i < results.length(); i++) {
+                    JSONObject track = results.getJSONObject(i);
+
+                    if (!"true".equalsIgnoreCase(
+                        track.optString("is_streamable", "false"))) {
+                        continue;
+                    }
+
+                    String trackId = track.optString("track_id", "");
+
+                    if (trackId.isEmpty() || !seenIds.add(trackId)) {
+                        continue;
+                    }
+
+                    String title = android.net.Uri.decode(
+                        track.optString("title", "Unknown")
+                    );
+
+                    String artist = track.optJSONObject("user") != null
+                        ? track.getJSONObject("user").optString("name", "Audius Artist")
+                        : "Audius Artist";
+
+                    titles.add(title);
+                    artists.add(artist);
+                    ids.add(trackId);
+                }
+
+            } catch (Exception e) {
+                android.util.Log.e("ECHO", "Search failed: " + searchQuery, e);
+            } finally {
+                if (connection != null) {
+                    connection.disconnect();
+                }
             }
-
-        } catch (Exception e) {
-            runOnUiThread(() -> Toast.makeText(
-                this, "Audius search failed. Try again.",
-                Toast.LENGTH_LONG
-            ).show());
         }
 
         runOnUiThread(() -> {
@@ -974,26 +1022,32 @@ void searchAudiusMusic() {
 
             for (int i = 0; i < titles.size(); i++) {
                 final int index = i;
+
                 TextView item = new TextView(this);
                 item.setText("🎵 " + titles.get(i)
                     + "\n" + artists.get(i)
-                    + "\n▶ PLAY TRACK");
+                    + "\n▶ PLAY FULL TRACK");
+
                 item.setTextColor(Color.WHITE);
                 item.setTextSize(16);
                 item.setPadding(18, 18, 18, 18);
+
                 item.setOnClickListener(v -> playAudiusTrack(index));
+
                 onlineResultsLayout.addView(item);
             }
 
             if (titles.isEmpty()) {
                 TextView empty = new TextView(this);
-                empty.setText("No playable Audius tracks found.");
+                empty.setText("No playable full songs found.");
                 empty.setTextColor(Color.WHITE);
                 onlineResultsLayout.addView(empty);
             }
         });
+
     }).start();
 }
+
 
 void playAudiusTrack(int index) {
     try {
