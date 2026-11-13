@@ -30,6 +30,7 @@ public class MainActivity extends Activity {
 ArrayList<String> audiusTrackIds = new ArrayList<>();
 ArrayList<String> onlineTitles = new ArrayList<>();
 ArrayList<String> onlineArtists = new ArrayList<>();
+ArrayList<String> onlineArtwork = new ArrayList<>();
 Set<String> favoriteSongs = new HashSet<>();
 LinearLayout onlineResultsLayout;
 EditText onlineSearchInput;
@@ -707,6 +708,42 @@ void updateSongInfo(int index) {
         if (playerArtist != null) playerArtist.setText(artist);
         if (albumArt != null) {
             albumArt.setImageResource(android.R.drawable.ic_media_play);
+
+            final int artIndex = currentAudiusIndex;
+            String imageUrl = artIndex < onlineArtwork.size()
+                    ? onlineArtwork.get(artIndex) : "";
+
+            if (!imageUrl.isEmpty()) {
+                final String artworkUrl = imageUrl;
+
+                new Thread(() -> {
+                    java.net.HttpURLConnection connection = null;
+                    try {
+                        java.net.URL url = new java.net.URL(artworkUrl);
+                        connection = (java.net.HttpURLConnection) url.openConnection();
+                        connection.setConnectTimeout(8000);
+                        connection.setReadTimeout(8000);
+
+                        android.graphics.Bitmap bitmap;
+                        try (java.io.InputStream stream = connection.getInputStream()) {
+                            bitmap = android.graphics.BitmapFactory.decodeStream(stream);
+                        }
+
+                        if (bitmap != null) {
+                            runOnUiThread(() -> {
+                                if (albumArt != null && isAudiusPlaying
+                                        && currentAudiusIndex == artIndex) {
+                                    albumArt.setImageBitmap(bitmap);
+                                }
+                            });
+                        }
+                    } catch (Exception e) {
+                        android.util.Log.e("ECHO", "Artwork load failed", e);
+                    } finally {
+                        if (connection != null) connection.disconnect();
+                    }
+                }).start();
+            }
         }
         nowPlaying.setText("🎵 " + title);
         miniNowPlaying.setText("🎵 " + title);
@@ -920,6 +957,7 @@ void searchAudiusMusic() {
     new Thread(() -> {
         ArrayList<String> titles = new ArrayList<>();
         ArrayList<String> artists = new ArrayList<>();
+        ArrayList<String> artworks = new ArrayList<>();
         ArrayList<String> ids = new ArrayList<>();
         HashSet<String> seenIds = new HashSet<>();
 
@@ -1004,6 +1042,12 @@ void searchAudiusMusic() {
 
                     titles.add(title);
                     artists.add(artist);
+                    JSONObject artwork = track.optJSONObject("artwork");
+                    String artworkUrl = "";
+                    if (artwork != null) {
+                        artworkUrl = artwork.optString("1000x1000", artwork.optString("480x480", artwork.optString("150x150", "")));
+                    }
+                    artworks.add(artworkUrl);
                     ids.add(trackId);
                 }
 
@@ -1021,10 +1065,12 @@ void searchAudiusMusic() {
 
             onlineTitles.clear();
             onlineArtists.clear();
+            onlineArtwork.clear();
             audiusTrackIds.clear();
 
             onlineTitles.addAll(titles);
             onlineArtists.addAll(artists);
+            onlineArtwork.addAll(artworks);
             audiusTrackIds.addAll(ids);
 
             for (int i = 0; i < titles.size(); i++) {
