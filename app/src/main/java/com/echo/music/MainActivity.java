@@ -51,6 +51,8 @@ TextView dialogTotalTime;
     int currentSong = -1;
 boolean isShuffle = false;
 boolean favoritesOnly = false;
+ArrayList<String> playlistNames = new ArrayList<>();
+ArrayList<ArrayList<String>> playlists = new ArrayList<>();
 boolean isRepeat = false;
 SeekBar seekBar;
 TextView currentTime, totalTime;
@@ -123,6 +125,17 @@ favoritesFilter.setOnClickListener(v -> {
 });
 
 layout.addView(favoritesFilter);
+
+Button createPlaylistButton = new Button(this);
+createPlaylistButton.setText("➕ CREATE PLAYLIST");
+createPlaylistButton.setOnClickListener(v -> showCreatePlaylistDialog());
+layout.addView(createPlaylistButton);
+
+Button viewPlaylistsButton = new Button(this);
+viewPlaylistsButton.setText("📂 MY PLAYLISTS");
+viewPlaylistsButton.setOnClickListener(v -> showPlaylistsDialog());
+layout.addView(viewPlaylistsButton);
+
 searchBar.addTextChangedListener(new TextWatcher() {
     @Override
     public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -291,6 +304,7 @@ root.addView(miniPlayer, new LinearLayout.LayoutParams(-1, 72));
 
 setContentView(root);
 loadFavorites();
+loadPlaylists();
 checkPermission();    }
 void loadFavorites() {
     android.content.SharedPreferences prefs =
@@ -310,6 +324,164 @@ void saveFavorites() {
         .putStringSet("favorites", new HashSet<>(favoriteSongs))
         .apply();
 }
+
+
+    void loadPlaylists() {
+        android.content.SharedPreferences prefs =
+            getSharedPreferences("ECHO_PLAYLISTS", MODE_PRIVATE);
+
+        playlistNames.clear();
+        playlists.clear();
+
+        int count = prefs.getInt("count", 0);
+
+        for (int i = 0; i < count; i++) {
+            String name = prefs.getString("name_" + i, "Playlist");
+            String data = prefs.getString("songs_" + i, "");
+
+            playlistNames.add(name);
+
+            ArrayList<String> items = new ArrayList<>();
+            if (!data.isEmpty()) {
+                items.addAll(java.util.Arrays.asList(data.split("\n")));
+            }
+            playlists.add(items);
+        }
+    }
+
+    void savePlaylists() {
+        android.content.SharedPreferences prefs =
+            getSharedPreferences("ECHO_PLAYLISTS", MODE_PRIVATE);
+
+        android.content.SharedPreferences.Editor editor = prefs.edit();
+        editor.clear();
+        editor.putInt("count", playlistNames.size());
+
+        for (int i = 0; i < playlistNames.size(); i++) {
+            editor.putString("name_" + i, playlistNames.get(i));
+            editor.putString("songs_" + i,
+                android.text.TextUtils.join("\n", playlists.get(i)));
+        }
+
+        editor.apply();
+    }
+
+
+    void showCreatePlaylistDialog() {
+        EditText input = new EditText(this);
+        input.setHint("Enter playlist name");
+        input.setSingleLine(true);
+
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("🎵 CREATE PLAYLIST")
+            .setView(input)
+            .setNegativeButton("CANCEL", null)
+            .setPositiveButton("CREATE", (dialog, which) -> {
+                String name = input.getText().toString().trim();
+
+                if (name.isEmpty()) {
+                    Toast.makeText(this, "Enter a playlist name",
+                        Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                playlistNames.add(name);
+                playlists.add(new ArrayList<>());
+                savePlaylists();
+
+                Toast.makeText(this, "Playlist created: " + name,
+                    Toast.LENGTH_SHORT).show();
+            })
+            .show();
+    }
+
+
+    void showPlaylistsDialog() {
+        if (playlistNames.isEmpty()) {
+            Toast.makeText(this, "No playlists created yet",
+                Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String[] names = playlistNames.toArray(new String[0]);
+
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("📂 MY PLAYLISTS")
+            .setItems(names, (dialog, which) -> {
+                showPlaylistSongsDialog(which);
+            })
+            .setNegativeButton("CLOSE", null)
+            .show();
+    }
+
+
+    void showPlaylistSongsDialog(int playlistIndex) {
+        ArrayList<String> items = playlists.get(playlistIndex);
+
+        String[] names = items.toArray(new String[0]);
+
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("🎵 " + playlistNames.get(playlistIndex))
+            .setItems(names, (dialog, which) -> {
+                String selectedUri = items.get(which);
+
+                int songIndex = -1;
+                for (int i = 0; i < songs.size(); i++) {
+                    if (songs.get(i).toString().equals(selectedUri)) {
+                        songIndex = i;
+                        break;
+                    }
+                }
+
+                if (songIndex >= 0) {
+                    playSong(songIndex);
+                } else {
+                    Toast.makeText(this, "Song not found on device",
+                        Toast.LENGTH_SHORT).show();
+                }
+            })
+            .setPositiveButton("➕ ADD SONGS", (dialog, which) -> {
+                showAddSongsDialog(playlistIndex);
+            })
+            .setNegativeButton("CLOSE", null)
+            .show();
+    }
+
+
+    void showAddSongsDialog(int playlistIndex) {
+        String[] names = new String[songViews.size()];
+        boolean[] checked = new boolean[songViews.size()];
+
+        for (int i = 0; i < songViews.size(); i++) {
+            names[i] = songViews.get(i).getText().toString();
+            checked[i] = playlists.get(playlistIndex)
+                .contains(songs.get(i).toString());
+        }
+
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("➕ SELECT SONGS")
+            .setMultiChoiceItems(names, checked,
+                (dialog, which, isChecked) -> {
+                    checked[which] = isChecked;
+                })
+            .setPositiveButton("SAVE", (dialog, which) -> {
+                ArrayList<String> items = playlists.get(playlistIndex);
+                items.clear();
+
+                for (int i = 0; i < checked.length; i++) {
+                    if (checked[i]) {
+                        items.add(songs.get(i).toString());
+                    }
+                }
+
+                savePlaylists();
+
+                Toast.makeText(this, "Playlist updated!",
+                    Toast.LENGTH_SHORT).show();
+            })
+            .setNegativeButton("CANCEL", null)
+            .show();
+    }
 
     void checkPermission() {
         String permission;
