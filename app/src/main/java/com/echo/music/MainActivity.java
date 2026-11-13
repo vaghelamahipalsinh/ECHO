@@ -24,6 +24,8 @@ public class MainActivity extends Activity {
 ArrayList<TextView> songViews = new ArrayList<>();
     MediaPlayer player;
     TextView nowPlaying;
+TextView miniNowPlaying;
+Button miniPlayButton;
     Button playButton;
     int currentSong = -1;
 boolean isShuffle = false;
@@ -164,13 +166,51 @@ seekBar.setOnSeekBarChangeListener(
         title.setPadding(0, 30, 0, 15);
         layout.addView(title);
 
-        ScrollView scroll = new ScrollView(this);
-        scroll.addView(layout);
+ScrollView scroll = new ScrollView(this);
+scroll.addView(layout);
 
-        setContentView(scroll);
+LinearLayout root = new LinearLayout(this);
+root.setOrientation(LinearLayout.VERTICAL);
+root.setBackgroundColor(bg);
 
-        checkPermission();
-    }
+root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
+
+LinearLayout miniPlayer = new LinearLayout(this);
+miniPlayer.setOrientation(LinearLayout.HORIZONTAL);
+miniPlayer.setGravity(Gravity.CENTER_VERTICAL);
+miniPlayer.setPadding(16, 8, 16, 8);
+miniPlayer.setBackgroundColor(Color.rgb(24, 24, 36));
+
+miniNowPlaying = new TextView(this);
+miniNowPlaying.setText("No song playing");
+miniNowPlaying.setTextColor(Color.WHITE);
+miniNowPlaying.setTextSize(14);
+miniNowPlaying.setSingleLine(true);
+miniNowPlaying.setEllipsize(android.text.TextUtils.TruncateAt.END);
+
+LinearLayout.LayoutParams miniTextParams =
+        new LinearLayout.LayoutParams(0, -2, 1f);
+miniPlayer.addView(miniNowPlaying, miniTextParams);
+
+Button miniPrevious = new Button(this);
+miniPrevious.setText("⏮");
+miniPrevious.setOnClickListener(v -> previousSong());
+miniPlayer.addView(miniPrevious);
+
+miniPlayButton = new Button(this);
+miniPlayButton.setText("▶");
+miniPlayButton.setOnClickListener(v -> togglePlay());
+miniPlayer.addView(miniPlayButton);
+
+Button miniNext = new Button(this);
+miniNext.setText("⏭");
+miniNext.setOnClickListener(v -> nextSong());
+miniPlayer.addView(miniNext);
+
+root.addView(miniPlayer, new LinearLayout.LayoutParams(-1, 72));
+
+setContentView(root);
+checkPermission();    }
 
     void checkPermission() {
         String permission;
@@ -306,7 +346,8 @@ handler.post(progressUpdater);
             currentSong = index;
             nowPlaying.setText("🎵 Playing song " + (index + 1));
             playButton.setText("PAUSE");
-
+miniNowPlaying.setText("🎵 Playing song " + (index + 1));
+miniPlayButton.setText("Ⅱ");
         } catch (Exception e) {
             Toast.makeText(this, "Cannot play this song",
                     Toast.LENGTH_SHORT).show();
@@ -335,9 +376,11 @@ void previousSong() {
         if (player.isPlaying()) {
             player.pause();
             playButton.setText("PLAY");
+            miniPlayButton.setText("▶");
         } else {
             player.start();
             playButton.setText("PAUSE");
+            miniPlayButton.setText("Ⅱ");
         }
     }
 
