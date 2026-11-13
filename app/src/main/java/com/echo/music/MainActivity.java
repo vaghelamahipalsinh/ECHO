@@ -1,4 +1,4 @@
-package com.echo.music;
+package com.echo.music
 
 import android.app.Activity;
 import android.os.Bundle;
@@ -26,6 +26,13 @@ ArrayList<TextView> songViews = new ArrayList<>();
     TextView nowPlaying;
 TextView miniNowPlaying;
 Button miniPlayButton;
+TextView playerSongTitle;
+TextView playerArtist;
+ImageView albumArt;
+android.app.Dialog nowPlayingDialog;
+SeekBar dialogSeekBar;
+TextView dialogCurrentTime;
+TextView dialogTotalTime;
     Button playButton;
     int currentSong = -1;
 boolean isShuffle = false;
@@ -180,7 +187,7 @@ miniPlayer.setOrientation(LinearLayout.HORIZONTAL);
 miniPlayer.setGravity(Gravity.CENTER_VERTICAL);
 miniPlayer.setPadding(16, 8, 16, 8);
 miniPlayer.setBackgroundColor(Color.rgb(24, 24, 36));
-
+miniPlayer.setOnClickListener(v -> showNowPlaying());
 miniNowPlaying = new TextView(this);
 miniNowPlaying.setText("No song playing");
 miniNowPlaying.setTextColor(Color.WHITE);
@@ -337,13 +344,23 @@ progressUpdater = new Runnable() {
         if (player != null && player.isPlaying()) {
             seekBar.setProgress(player.getCurrentPosition());
             currentTime.setText(formatTime(player.getCurrentPosition()));
-        }
+        }if (dialogSeekBar != null) {
+    dialogSeekBar.setMax(player.getDuration());
+    dialogSeekBar.setProgress(player.getCurrentPosition());
+}
+if (dialogCurrentTime != null) {
+    dialogCurrentTime.setText(formatTime(player.getCurrentPosition()));
+}
+if (dialogTotalTime != null) {
+    dialogTotalTime.setText(formatTime(player.getDuration()));
+}
         handler.postDelayed(this, 500);
     }
 };
 handler.removeCallbacks(progressUpdater);
 handler.post(progressUpdater);
             currentSong = index;
+updateSongInfo(index);
             nowPlaying.setText("🎵 Playing song " + (index + 1));
             playButton.setText("PAUSE");
 miniNowPlaying.setText("🎵 Playing song " + (index + 1));
@@ -351,9 +368,192 @@ miniPlayButton.setText("Ⅱ");
         } catch (Exception e) {
             Toast.makeText(this, "Cannot play this song",
                     Toast.LENGTH_SHORT).show();
+}        }
+void updateSongInfo(int index) {
+    String title = "Unknown title";
+    String artist = "Unknown artist";
+    long albumId = -1;
+
+    try {
+        String[] columns = {
+            MediaStore.Audio.Media.TITLE,
+            MediaStore.Audio.Media.ARTIST,
+            MediaStore.Audio.Media.ALBUM_ID
+        };
+
+        Cursor cursor = getContentResolver().query(
+            songs.get(index),
+            columns, null, null, null
+        );
+
+        if (cursor != null) {
+            if (cursor.moveToFirst()) {
+                title = cursor.getString(0);
+                artist = cursor.getString(1);
+                albumId = cursor.getLong(2);
+            }
+            cursor.close();
+        }
+    } catch (Exception e) {
+        Toast.makeText(this, "Song details unavailable",
+                Toast.LENGTH_SHORT).show();
+    }
+
+    if (playerSongTitle != null) {
+        playerSongTitle.setText(title);
+    }
+
+    if (playerArtist != null) {
+        playerArtist.setText(artist);
+    }
+
+    if (albumArt != null) {
+        try {
+            Uri artUri = android.content.ContentUris.withAppendedId(
+                Uri.parse("content://media/external/audio/albumart"),
+                albumId
+            );
+            albumArt.setImageURI(artUri);
+        } catch (Exception e) {
+            albumArt.setImageResource(
+                android.R.drawable.ic_media_play);
         }
     }
 
+    nowPlaying.setText("🎵 " + title);
+    miniNowPlaying.setText("🎵 " + title);
+}
+void showNowPlaying() {
+    if (currentSong < 0 || songs.isEmpty()) {
+        Toast.makeText(this, "Play a song first",
+                Toast.LENGTH_SHORT).show();
+        return;
+    }
+
+    android.app.Dialog dialog = new android.app.Dialog(this);
+
+    LinearLayout screen = new LinearLayout(this);
+    screen.setOrientation(LinearLayout.VERTICAL);
+    screen.setGravity(Gravity.CENTER);
+    screen.setPadding(25, 20, 25, 20);
+    screen.setBackgroundColor(Color.rgb(10, 10, 18));
+
+    Button close = new Button(this);
+    close.setText("↓ CLOSE");
+    close.setOnClickListener(v -> dialog.dismiss());
+    screen.addView(close);
+
+    albumArt = new ImageView(this);
+    albumArt.setImageResource(android.R.drawable.ic_media_play);
+    albumArt.setScaleType(ImageView.ScaleType.CENTER_CROP);
+
+    LinearLayout.LayoutParams artParams =
+            new LinearLayout.LayoutParams(280, 280);
+    artParams.setMargins(0, 25, 0, 25);
+    screen.addView(albumArt, artParams);
+
+    playerSongTitle = new TextView(this);
+    playerSongTitle.setText("ECHO MUSIC");
+    playerSongTitle.setTextColor(Color.WHITE);
+    playerSongTitle.setTextSize(23);
+    playerSongTitle.setGravity(Gravity.CENTER);
+    screen.addView(playerSongTitle);
+
+    playerArtist = new TextView(this);
+    playerArtist.setText("Now Playing");
+    playerArtist.setTextColor(blue);
+    playerArtist.setTextSize(16);
+    playerArtist.setGravity(Gravity.CENTER);
+    screen.addView(playerArtist);
+
+    dialogSeekBar = new SeekBar(this);
+    screen.addView(dialogSeekBar);
+dialogSeekBar.setOnSeekBarChangeListener(
+    new SeekBar.OnSeekBarChangeListener() {
+        @Override
+        public void onProgressChanged(SeekBar bar,
+                int progress, boolean fromUser) {
+            if (fromUser && dialogCurrentTime != null) {
+                dialogCurrentTime.setText(formatTime(progress));
+            }
+        }
+
+        @Override
+        public void onStartTrackingTouch(SeekBar bar) {}
+
+        @Override
+        public void onStopTrackingTouch(SeekBar bar) {
+            if (player != null) {
+                player.seekTo(bar.getProgress());
+            }
+        }
+    }
+);
+    LinearLayout times = new LinearLayout(this);
+    times.setOrientation(LinearLayout.HORIZONTAL);
+
+    dialogCurrentTime = new TextView(this);
+    dialogCurrentTime.setText("0:00");
+    dialogCurrentTime.setTextColor(Color.WHITE);
+
+    dialogTotalTime = new TextView(this);
+    dialogTotalTime.setText("0:00");
+    dialogTotalTime.setTextColor(Color.WHITE);
+    dialogTotalTime.setGravity(Gravity.RIGHT);
+
+    times.addView(dialogCurrentTime,
+            new LinearLayout.LayoutParams(0, -2, 1));
+    times.addView(dialogTotalTime,
+            new LinearLayout.LayoutParams(0, -2, 1));
+    screen.addView(times);
+
+    LinearLayout controls = new LinearLayout(this);
+    controls.setGravity(Gravity.CENTER);
+
+    Button previous = new Button(this);
+    previous.setText("⏮");
+    previous.setOnClickListener(v -> previousSong());
+
+    Button play = new Button(this);
+    play.setText("▶ / Ⅱ");
+    play.setOnClickListener(v -> togglePlay());
+
+    Button next = new Button(this);
+    next.setText("⏭");
+    next.setOnClickListener(v -> nextSong());
+
+    controls.addView(previous);
+    controls.addView(play);
+    controls.addView(next);
+    screen.addView(controls);
+LinearLayout modes = new LinearLayout(this);
+modes.setGravity(Gravity.CENTER);
+
+Button shuffleButton = new Button(this);
+shuffleButton.setText(isShuffle ? "SHUFFLE ON" : "SHUFFLE OFF");
+shuffleButton.setOnClickListener(v -> {
+    isShuffle = !isShuffle;
+    shuffleButton.setText(isShuffle ? "SHUFFLE ON" : "SHUFFLE OFF");
+});
+
+Button repeatButton = new Button(this);
+repeatButton.setText(isRepeat ? "REPEAT ON" : "REPEAT OFF");
+repeatButton.setOnClickListener(v -> {
+    isRepeat = !isRepeat;
+    repeatButton.setText(isRepeat ? "REPEAT ON" : "REPEAT OFF");
+});
+
+modes.addView(shuffleButton);
+modes.addView(repeatButton);
+screen.addView(modes);
+    dialog.setContentView(screen);
+    dialog.show();
+    dialog.getWindow().setLayout(-1, -1);
+
+    nowPlayingDialog = dialog;
+updateSongInfo(currentSong);
+}
+// ECHO 7.0 NOW PLAYING SCREEN
 String formatTime(int milliseconds) {
     int minutes = milliseconds / 60000;
     int seconds = (milliseconds / 1000) % 60;
