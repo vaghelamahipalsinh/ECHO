@@ -17,8 +17,20 @@ import android.graphics.drawable.GradientDrawable;
 import java.util.ArrayList;
 import android.text.TextWatcher;
 import android.text.Editable;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.net.HttpURLConnection;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import org.json.JSONArray;
+import org.json.JSONObject;
 public class MainActivity extends Activity {
+ArrayList<String> onlineUrls = new ArrayList<>();
+ArrayList<String> onlineTitles = new ArrayList<>();
+ArrayList<String> onlineArtists = new ArrayList<>();
 
+LinearLayout onlineResultsLayout;
+EditText onlineSearchInput;
     LinearLayout layout;
     ArrayList<Uri> songs = new ArrayList<>();
 ArrayList<TextView> songViews = new ArrayList<>();
@@ -100,7 +112,28 @@ searchBar.addTextChangedListener(new TextWatcher() {
 
     @Override
     public void afterTextChanged(Editable s) {}
-});
+});TextView onlineHeading = new TextView(this);
+onlineHeading.setText("🌐 ONLINE MUSIC");
+onlineHeading.setTextColor(blue);
+onlineHeading.setTextSize(22);
+onlineHeading.setPadding(0, 25, 0, 15);
+layout.addView(onlineHeading);
+
+onlineSearchInput = new EditText(this);
+onlineSearchInput.setHint("Search online songs...");
+onlineSearchInput.setTextColor(Color.WHITE);
+onlineSearchInput.setHintTextColor(Color.GRAY);
+onlineSearchInput.setSingleLine(true);
+layout.addView(onlineSearchInput);
+
+Button onlineSearchButton = new Button(this);
+onlineSearchButton.setText("SEARCH ONLINE");
+onlineSearchButton.setOnClickListener(v -> searchOnlineMusic());
+layout.addView(onlineSearchButton);
+
+onlineResultsLayout = new LinearLayout(this);
+onlineResultsLayout.setOrientation(LinearLayout.VERTICAL);
+layout.addView(onlineResultsLayout);
         heading.setTextColor(Color.LTGRAY);
         layout.addView(heading);
 
@@ -554,6 +587,148 @@ screen.addView(modes);
 updateSongInfo(currentSong);
 }
 // ECHO 7.0 NOW PLAYING SCREEN
+void searchOnlineMusic() {
+    String query = onlineSearchInput.getText().toString().trim();
+
+    if (query.isEmpty()) {
+        Toast.makeText(this, "Enter song name", Toast.LENGTH_SHORT).show();
+        return;
+    }
+
+    onlineResultsLayout.removeAllViews();
+
+    TextView loading = new TextView(this);
+    loading.setText("Searching online music...");
+    loading.setTextColor(Color.WHITE);
+    onlineResultsLayout.addView(loading);
+
+    new Thread(() -> {
+        ArrayList<String> titles = new ArrayList<>();
+        ArrayList<String> artists = new ArrayList<>();
+        ArrayList<String> urls = new ArrayList<>();
+
+        try {
+            String encoded = URLEncoder.encode(query, "UTF-8");
+
+            URL url = new URL(
+                "https://itunes.apple.com/search?term="
+                + encoded + "&entity=song&limit=25"
+            );
+
+            HttpURLConnection connection =
+                (HttpURLConnection) url.openConnection();
+
+            connection.setConnectTimeout(10000);
+            connection.setReadTimeout(10000);
+
+            BufferedReader reader = new BufferedReader(
+                new InputStreamReader(connection.getInputStream())
+            );
+
+            StringBuilder response = new StringBuilder();
+            String line;
+
+            while ((line = reader.readLine()) != null) {
+                response.append(line);
+            }
+
+            reader.close();
+            connection.disconnect();
+
+            JSONObject json = new JSONObject(response.toString());
+            JSONArray results = json.getJSONArray("results");
+
+            for (int i = 0; i < results.length(); i++) {
+                JSONObject song = results.getJSONObject(i);
+
+                if (!song.has("previewUrl")) continue;
+
+                titles.add(song.getString("trackName"));
+                artists.add(song.getString("artistName"));
+                urls.add(song.getString("previewUrl"));
+            }
+
+        } catch (Exception e) {
+            runOnUiThread(() -> Toast.makeText(
+                this, "Search failed. Check internet.",
+                Toast.LENGTH_LONG
+            ).show());
+        }
+
+        runOnUiThread(() -> {
+            onlineResultsLayout.removeAllViews();
+
+            onlineTitles.clear();
+            onlineArtists.clear();
+            onlineUrls.clear();
+
+            onlineTitles.addAll(titles);
+            onlineArtists.addAll(artists);
+            onlineUrls.addAll(urls);
+
+            for (int i = 0; i < onlineTitles.size(); i++) {
+                final int index = i;
+
+                TextView item = new TextView(this);
+                item.setText("🎵 " + onlineTitles.get(i)
+                    + "\n" + onlineArtists.get(i)
+                    + "\n▶ PLAY PREVIEW");
+
+                item.setTextColor(Color.WHITE);
+                item.setTextSize(16);
+                item.setPadding(18, 18, 18, 18);
+
+                item.setOnClickListener(v ->
+                    playOnlinePreview(index)
+                );
+
+                onlineResultsLayout.addView(item);
+            }
+
+            if (onlineTitles.isEmpty()) {
+                TextView empty = new TextView(this);
+                empty.setText("No preview songs found.");
+                empty.setTextColor(Color.WHITE);
+                onlineResultsLayout.addView(empty);
+            }
+        });
+    }).start();
+}
+
+void playOnlinePreview(int index) {
+    try {
+        if (player != null) {
+            player.release();
+        }
+
+        currentSong = -1;
+        player = new MediaPlayer();
+
+        player.setDataSource(onlineUrls.get(index));
+
+        player.setOnPreparedListener(mp -> {
+            mp.start();
+
+            String title = onlineTitles.get(index);
+            String artist = onlineArtists.get(index);
+
+            nowPlaying.setText("🎵 " + title);
+            miniNowPlaying.setText("🎵 " + title);
+
+            playButton.setText("PAUSE");
+            miniPlayButton.setText("Ⅱ");
+
+            Toast.makeText(this, "Playing preview",
+                Toast.LENGTH_SHORT).show();
+        });
+
+        player.prepareAsync();
+
+    } catch (Exception e) {
+        Toast.makeText(this, "Cannot play preview",
+            Toast.LENGTH_SHORT).show();
+    }
+}
 String formatTime(int milliseconds) {
     int minutes = milliseconds / 60000;
     int seconds = (milliseconds / 1000) % 60;
