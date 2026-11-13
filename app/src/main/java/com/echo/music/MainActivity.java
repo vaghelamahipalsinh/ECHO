@@ -131,31 +131,28 @@ searchBar.addTextChangedListener(new TextWatcher() {
     public void onTextChanged(CharSequence s, int start, int before, int count) {
         String query = s.toString().toLowerCase().trim();
 
-for (int i = 0; i < songViews.size(); i++) {
-    TextView song = songViews.get(i);
+        for (int i = 0; i < songViews.size(); i++) {
+            TextView song = songViews.get(i);
 
-    boolean match = song.getText().toString()
-        .toLowerCase().contains(query);
-
-    boolean isFavorite = favoriteSongs.contains(
-        songs.get(i).toString()
-    );
-
-    song.setVisibility(
-        match && (!favoritesOnly || isFavorite)
-            ? View.VISIBLE : View.GONE
-    );
-}
             boolean match = song.getText().toString()
-                    .toLowerCase().contains(query);
+                .toLowerCase().contains(query);
 
-            song.setVisibility(match ? View.VISIBLE : View.GONE);
+            boolean isFavorite = favoriteSongs.contains(
+                songs.get(i).toString()
+            );
+
+            song.setVisibility(
+                match && (!favoritesOnly || isFavorite)
+                    ? View.VISIBLE : View.GONE
+            );
         }
     }
 
     @Override
     public void afterTextChanged(Editable s) {}
-});TextView onlineHeading = new TextView(this);
+});
+
+TextView onlineHeading = new TextView(this);
 onlineHeading.setText("🌐 ONLINE MUSIC");
 onlineHeading.setTextColor(blue);
 onlineHeading.setTextSize(22);
