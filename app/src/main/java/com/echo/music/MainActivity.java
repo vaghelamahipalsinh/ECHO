@@ -1001,13 +1001,13 @@ void searchAudiusMusic() {
             for (int i = 0; i < results.length(); i++) {
                 JSONObject track = results.getJSONObject(i);
 
-                if (!track.optBoolean("is_streamable", true)) continue;
+                if ("false".equalsIgnoreCase(track.optString("is_streamable", "true"))) continue;
 
                 titles.add(track.optString("title", "Unknown"));
                 artists.add(track.optJSONObject("user") != null
                     ? track.getJSONObject("user").optString("name", "Audius Artist")
                     : "Audius Artist");
-                ids.add(track.optString("id"));
+                ids.add(track.optString("track_id"));
             }
 
         } catch (Exception e) {
