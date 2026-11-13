@@ -10,14 +10,18 @@ import android.provider.MediaStore;
 import android.media.MediaPlayer;
 import android.os.Build;
 import android.view.Gravity;
+import android.view.View;
 import android.widget.*;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import java.util.ArrayList;
-
+import android.text.TextWatcher;
+import android.text.Editable;
 public class MainActivity extends Activity {
 
     LinearLayout layout;
     ArrayList<Uri> songs = new ArrayList<>();
+ArrayList<TextView> songViews = new ArrayList<>();
     MediaPlayer player;
     TextView nowPlaying;
     Button playButton;
@@ -51,7 +55,43 @@ Runnable progressUpdater;
         layout.addView(logo);
 
         TextView heading = new TextView(this);
-        heading.setText("YOUR MUSIC. YOUR WORLD.");
+        heading.setText("YOUR MUSIC. YOUR WORLD.")
+;
+        EditText searchBar = new EditText(this);
+        searchBar.setHint("🔍 Search your music...");
+        searchBar.setHintTextColor(Color.GRAY);
+        searchBar.setTextColor(Color.WHITE);
+        searchBar.setSingleLine(true);
+        searchBar.setPadding(20, 15, 20, 15);
+
+        GradientDrawable searchBg = new GradientDrawable();
+        searchBg.setColor(Color.rgb(28, 28, 42));
+        searchBg.setCornerRadius(30);
+        searchBar.setBackground(searchBg);
+
+        LinearLayout.LayoutParams searchParams =
+                new LinearLayout.LayoutParams(-1, -2);
+        searchParams.setMargins(0, 20, 0, 20);
+        layout.addView(searchBar, searchParams);
+searchBar.addTextChangedListener(new TextWatcher() {
+    @Override
+    public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+    @Override
+    public void onTextChanged(CharSequence s, int start, int before, int count) {
+        String query = s.toString().toLowerCase().trim();
+
+        for (TextView song : songViews) {
+            boolean match = song.getText().toString()
+                    .toLowerCase().contains(query);
+
+            song.setVisibility(match ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    @Override
+    public void afterTextChanged(Editable s) {}
+});
         heading.setTextColor(Color.LTGRAY);
         layout.addView(heading);
 
@@ -197,10 +237,15 @@ seekBar.setOnSeekBarChangeListener(
                 song.setTextColor(Color.WHITE);
                 song.setTextSize(17);
                 song.setPadding(15, 18, 15, 18);
-                song.setBackgroundColor(Color.rgb(24, 24, 36));
+                GradientDrawable card = new GradientDrawable();
+                card.setColor(Color.rgb(28, 28, 42));
+                card.setCornerRadius(22);
+                song.setBackground(card);
+                song.setElevation(3);
 
                 final int index = songs.size() - 1;
                 song.setOnClickListener(v -> playSong(index));
+songViews.add(song);
 
                 LinearLayout.LayoutParams params =
                     new LinearLayout.LayoutParams(-1, -2);
