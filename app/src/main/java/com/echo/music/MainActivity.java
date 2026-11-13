@@ -22,6 +22,8 @@ public class MainActivity extends Activity {
     TextView nowPlaying;
     Button playButton;
     int currentSong = -1;
+boolean isShuffle = false;
+boolean isRepeat = false;
 SeekBar seekBar;
 TextView currentTime, totalTime;
 android.os.Handler handler = new android.os.Handler();
@@ -73,6 +75,21 @@ Button nextButton = new Button(this);
 nextButton.setText("NEXT ⏭");
 nextButton.setOnClickListener(v -> nextSong());
 layout.addView(nextButton);
+Button shuffleButton = new Button(this);
+shuffleButton.setText("SHUFFLE OFF");
+shuffleButton.setOnClickListener(v -> {
+    isShuffle = !isShuffle;
+    shuffleButton.setText(isShuffle ? "SHUFFLE ON" : "SHUFFLE OFF");
+});
+layout.addView(shuffleButton);
+
+Button repeatButton = new Button(this);
+repeatButton.setText("REPEAT OFF");
+repeatButton.setOnClickListener(v -> {
+    isRepeat = !isRepeat;
+    repeatButton.setText(isRepeat ? "REPEAT ON" : "REPEAT OFF");
+});
+layout.addView(repeatButton);
 currentTime = new TextView(this);
 currentTime.setText("0:00");
 currentTime.setTextColor(Color.WHITE);
@@ -212,11 +229,17 @@ seekBar.setOnSeekBarChangeListener(
             player = new MediaPlayer();
             player.setDataSource(this, songs.get(index));
             player.setOnCompletionListener(mp -> {
-                int next = currentSong + 1;
-                if (next < songs.size()) {
-                    playSong(next);
-                }
-            });
+if (isRepeat) {
+    playSong(currentSong);
+} else if (isShuffle && songs.size() > 1) {
+    int randomIndex;
+    do {
+        randomIndex = (int) (Math.random() * songs.size());
+    } while (randomIndex == currentSong);
+    playSong(randomIndex);
+} else if (currentSong + 1 < songs.size()) {
+    playSong(currentSong + 1);
+}            });
 
             player.prepare();
             player.start();
