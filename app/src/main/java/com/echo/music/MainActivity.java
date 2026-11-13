@@ -28,6 +28,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 public class MainActivity extends Activity {
 ArrayList<String> onlineUrls = new ArrayList<>();
+ArrayList<String> audiusTrackIds = new ArrayList<>();
 ArrayList<String> onlineTitles = new ArrayList<>();
 ArrayList<String> onlineArtists = new ArrayList<>();
 Set<String> favoriteSongs = new HashSet<>();
@@ -183,6 +184,10 @@ Button onlineSearchButton = new Button(this);
 onlineSearchButton.setText("SEARCH ONLINE");
 onlineSearchButton.setOnClickListener(v -> searchOnlineMusic());
 layout.addView(onlineSearchButton);
+Button audiusSearchButton = new Button(this);
+audiusSearchButton.setText("SEARCH AUDIOUS - FULL TRACKS");
+audiusSearchButton.setOnClickListener(v -> searchAudiusMusic());
+layout.addView(audiusSearchButton);
 
 onlineResultsLayout = new LinearLayout(this);
 onlineResultsLayout.setOrientation(LinearLayout.VERTICAL);
@@ -945,7 +950,153 @@ void searchOnlineMusic() {
         });
     }).start();
 }
+void searchAudiusMusic() {
+    String query = onlineSearchInput.getText().toString().trim();
 
+    if (query.isEmpty()) {
+        Toast.makeText(this, "Enter song name", Toast.LENGTH_SHORT).show();
+        return;
+    }
+
+    onlineResultsLayout.removeAllViews();
+    TextView loading = new TextView(this);
+    loading.setText("Searching Audius full tracks...");
+    loading.setTextColor(Color.WHITE);
+    onlineResultsLayout.addView(loading);
+
+    new Thread(() -> {
+        ArrayList<String> titles = new ArrayList<>();
+        ArrayList<String> artists = new ArrayList<>();
+        ArrayList<String> ids = new ArrayList<>();
+
+        try {
+            String encoded = URLEncoder.encode(query, "UTF-8");
+            URL url = new URL(
+                "https://discoveryprovider.audius.co/v1/tracks/search?query="
+                + encoded + "&limit=25"
+            );
+
+            HttpURLConnection connection =
+                (HttpURLConnection) url.openConnection();
+            connection.setConnectTimeout(15000);
+            connection.setReadTimeout(15000);
+
+            BufferedReader reader = new BufferedReader(
+                new InputStreamReader(connection.getInputStream())
+            );
+
+            StringBuilder response = new StringBuilder();
+            String line;
+
+            while ((line = reader.readLine()) != null) {
+                response.append(line);
+            }
+
+            reader.close();
+            connection.disconnect();
+
+            JSONObject json = new JSONObject(response.toString());
+            JSONArray results = json.getJSONArray("data");
+
+            for (int i = 0; i < results.length(); i++) {
+                JSONObject track = results.getJSONObject(i);
+
+                if (!track.optBoolean("is_streamable", true)) continue;
+
+                titles.add(track.optString("title", "Unknown"));
+                artists.add(track.optJSONObject("user") != null
+                    ? track.getJSONObject("user").optString("name", "Audius Artist")
+                    : "Audius Artist");
+                ids.add(track.optString("id"));
+            }
+
+        } catch (Exception e) {
+            runOnUiThread(() -> Toast.makeText(
+                this, "Audius search failed. Try again.",
+                Toast.LENGTH_LONG
+            ).show());
+        }
+
+        runOnUiThread(() -> {
+            onlineResultsLayout.removeAllViews();
+
+            onlineTitles.clear();
+            onlineArtists.clear();
+            audiusTrackIds.clear();
+
+            onlineTitles.addAll(titles);
+            onlineArtists.addAll(artists);
+            audiusTrackIds.addAll(ids);
+
+            for (int i = 0; i < titles.size(); i++) {
+                final int index = i;
+                TextView item = new TextView(this);
+                item.setText("🎵 " + titles.get(i)
+                    + "\n" + artists.get(i)
+                    + "\n▶ PLAY TRACK");
+                item.setTextColor(Color.WHITE);
+                item.setTextSize(16);
+                item.setPadding(18, 18, 18, 18);
+                item.setOnClickListener(v -> playAudiusTrack(index));
+                onlineResultsLayout.addView(item);
+            }
+
+            if (titles.isEmpty()) {
+                TextView empty = new TextView(this);
+                empty.setText("No playable Audius tracks found.");
+                empty.setTextColor(Color.WHITE);
+                onlineResultsLayout.addView(empty);
+            }
+        });
+    }).start();
+}
+
+void playAudiusTrack(int index) {
+    try {
+        if (player != null) {
+            player.release();
+            player = null;
+        }
+
+        currentSong = -1;
+        player = new MediaPlayer();
+
+        String trackId = audiusTrackIds.get(index);
+
+        String streamUrl =
+            "https://discoveryprovider.audius.co/v1/tracks/"
+            + URLEncoder.encode(trackId, "UTF-8")
+            + "/stream";
+
+        player.setDataSource(streamUrl);
+
+        player.setOnPreparedListener(mp -> {
+            mp.start();
+
+            String title = onlineTitles.get(index);
+            nowPlaying.setText("🎵 " + title);
+            miniNowPlaying.setText("🎵 " + title);
+
+            playButton.setText("PAUSE");
+            miniPlayButton.setText("Ⅱ");
+
+            Toast.makeText(this, "Playing full Audius track",
+                Toast.LENGTH_SHORT).show();
+        });
+
+        player.setOnErrorListener((mp, what, extra) -> {
+            Toast.makeText(this, "Track unavailable. Try another.",
+                Toast.LENGTH_LONG).show();
+            return true;
+        });
+
+        player.prepareAsync();
+
+    } catch (Exception e) {
+        Toast.makeText(this, "Cannot play Audius track",
+            Toast.LENGTH_SHORT).show();
+    }
+}
 void playOnlinePreview(int index) {
     try {
         if (player != null) {
