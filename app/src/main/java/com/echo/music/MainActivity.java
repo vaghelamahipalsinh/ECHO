@@ -67,6 +67,7 @@ Runnable progressUpdater;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        loadTheme();
 
         getWindow().setStatusBarColor(bg);
         getWindow().setNavigationBarColor(bg);
@@ -102,6 +103,12 @@ Runnable progressUpdater;
                 new LinearLayout.LayoutParams(-1, -2);
         searchParams.setMargins(0, 20, 0, 20);
         layout.addView(searchBar, searchParams);
+
+Button themeButton = new Button(this);
+themeButton.setText("🎨 PREMIUM STYLES");
+themeButton.setOnClickListener(v -> showThemeDialog());
+layout.addView(themeButton);
+
 Button favoritesFilter = new Button(this);
 favoritesFilter.setText("❤️ SHOW FAVORITES");
 
@@ -1099,6 +1106,8 @@ void playAudiusTrack(int index) {
     }
 }
 
+void loadTheme(){int t=getSharedPreferences("ECHO_SETTINGS",0).getInt("theme",0);int[] b={0xff0a0a12,0xff0f081c,0xff051423,0xff230c14,0xff081912};int[] a={0xff00b4ff,0xffbe50ff,0xff00dcdc,0xffff9141,0xff32dc82};bg=b[t>=0&&t<5?t:0];blue=a[t>=0&&t<5?t:0];}
+void showThemeDialog(){String[] n={"🌌 Midnight Blue","💜 Neon Purple","🌊 Ocean","🌅 Sunset","💚 Emerald"};new android.app.AlertDialog.Builder(this).setTitle("🎨 ECHO PREMIUM STYLES").setItems(n,(d,w)->{getSharedPreferences("ECHO_SETTINGS",0).edit().putInt("theme",w).apply();recreate();}).setNegativeButton("CANCEL",null).show();}
 String formatTime(int milliseconds) {
     int minutes = milliseconds / 60000;
     int seconds = (milliseconds / 1000) % 60;
