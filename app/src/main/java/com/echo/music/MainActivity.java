@@ -46,6 +46,7 @@ TextView playerArtist;
 ImageView albumArt;
 android.app.Dialog nowPlayingDialog;
 SeekBar dialogSeekBar;
+boolean isSeeking = false;
 TextView dialogCurrentTime;
 TextView dialogTotalTime;
     Button playButton;
@@ -629,27 +630,7 @@ if (isRepeat) {
 seekBar.setMax(player.getDuration());
 totalTime.setText(formatTime(player.getDuration()));
 
-progressUpdater = new Runnable() {
-    @Override
-    public void run() {
-        if (player != null && player.isPlaying()) {
-            seekBar.setProgress(player.getCurrentPosition());
-            currentTime.setText(formatTime(player.getCurrentPosition()));
-        }if (dialogSeekBar != null) {
-    dialogSeekBar.setMax(player.getDuration());
-    dialogSeekBar.setProgress(player.getCurrentPosition());
-}
-if (dialogCurrentTime != null) {
-    dialogCurrentTime.setText(formatTime(player.getCurrentPosition()));
-}
-if (dialogTotalTime != null) {
-    dialogTotalTime.setText(formatTime(player.getDuration()));
-}
-        handler.postDelayed(this, 500);
-    }
-};
-handler.removeCallbacks(progressUpdater);
-handler.post(progressUpdater);
+startProgressUpdater();
             isAudiusPlaying = false;
             currentSong = index;
 updateSongInfo(index);
@@ -661,6 +642,58 @@ miniPlayButton.setText("Ⅱ");
             Toast.makeText(this, "Cannot play this song",
                     Toast.LENGTH_SHORT).show();
 }        }
+
+void startProgressUpdater() {
+    if (progressUpdater != null) {
+        handler.removeCallbacks(progressUpdater);
+    }
+
+    progressUpdater = new Runnable() {
+        @Override
+        public void run() {
+            MediaPlayer activePlayer = player;
+
+            if (activePlayer != null) {
+                try {
+                    int duration = activePlayer.getDuration();
+                    int position = activePlayer.getCurrentPosition();
+
+                    if (duration > 0) {
+                        if (seekBar != null) {
+                            seekBar.setMax(duration);
+                            seekBar.setProgress(position);
+                        }
+
+                        if (currentTime != null) {
+                            currentTime.setText(formatTime(position));
+                        }
+
+                        if (dialogSeekBar != null) {
+                            dialogSeekBar.setMax(duration);
+                            if (!isSeeking) {
+                                dialogSeekBar.setProgress(position);
+                            }
+                        }
+
+                        if (dialogCurrentTime != null && !isSeeking) {
+                            dialogCurrentTime.setText(formatTime(position));
+                        }
+
+                        if (dialogTotalTime != null) {
+                            dialogTotalTime.setText(formatTime(duration));
+                        }
+                    }
+                } catch (IllegalStateException ignored) {
+                }
+            }
+
+            handler.postDelayed(this, 500);
+        }
+    };
+
+    handler.post(progressUpdater);
+}
+
 void updateSongInfo(int index) {
     if (isAudiusPlaying && currentAudiusIndex >= 0
             && currentAudiusIndex < onlineTitles.size()) {
@@ -786,13 +819,16 @@ dialogSeekBar.setOnSeekBarChangeListener(
         }
 
         @Override
-        public void onStartTrackingTouch(SeekBar bar) {}
+        public void onStartTrackingTouch(SeekBar bar) {
+            isSeeking = true;
+        }
 
         @Override
         public void onStopTrackingTouch(SeekBar bar) {
             if (player != null) {
                 player.seekTo(bar.getProgress());
             }
+            isSeeking = false;
         }
     }
 );
@@ -1092,6 +1128,7 @@ void playAudiusTrack(int index) {
 
         player.setOnPreparedListener(mp -> {
             mp.start();
+            startProgressUpdater();
 
             String title = onlineTitles.get(index);
             nowPlaying.setText("🎵 " + title);
