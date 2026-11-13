@@ -15,6 +15,8 @@ import android.widget.*;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 import android.text.TextWatcher;
 import android.text.Editable;
 import java.net.URL;
@@ -28,7 +30,7 @@ public class MainActivity extends Activity {
 ArrayList<String> onlineUrls = new ArrayList<>();
 ArrayList<String> onlineTitles = new ArrayList<>();
 ArrayList<String> onlineArtists = new ArrayList<>();
-
+Set<String> favoriteSongs = new HashSet<>();
 LinearLayout onlineResultsLayout;
 EditText onlineSearchInput;
     LinearLayout layout;
@@ -48,6 +50,7 @@ TextView dialogTotalTime;
     Button playButton;
     int currentSong = -1;
 boolean isShuffle = false;
+boolean favoritesOnly = false;
 boolean isRepeat = false;
 SeekBar seekBar;
 TextView currentTime, totalTime;
@@ -94,6 +97,32 @@ Runnable progressUpdater;
                 new LinearLayout.LayoutParams(-1, -2);
         searchParams.setMargins(0, 20, 0, 20);
         layout.addView(searchBar, searchParams);
+Button favoritesFilter = new Button(this);
+favoritesFilter.setText("❤️ SHOW FAVORITES");
+
+favoritesFilter.setOnClickListener(v -> {
+    favoritesOnly = !favoritesOnly;
+
+    favoritesFilter.setText(
+        favoritesOnly ? "🎵 SHOW ALL SONGS" : "❤️ SHOW FAVORITES"
+    );
+
+    String query = searchBar.getText().toString().toLowerCase().trim();
+
+    for (int i = 0; i < songViews.size(); i++) {
+        boolean match = songViews.get(i).getText()
+            .toString().toLowerCase().contains(query);
+
+        boolean isFavorite = favoriteSongs.contains(songs.get(i).toString());
+
+        songViews.get(i).setVisibility(
+            match && (!favoritesOnly || isFavorite)
+                ? View.VISIBLE : View.GONE
+        );
+    }
+});
+
+layout.addView(favoritesFilter);
 searchBar.addTextChangedListener(new TextWatcher() {
     @Override
     public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -102,7 +131,21 @@ searchBar.addTextChangedListener(new TextWatcher() {
     public void onTextChanged(CharSequence s, int start, int before, int count) {
         String query = s.toString().toLowerCase().trim();
 
-        for (TextView song : songViews) {
+for (int i = 0; i < songViews.size(); i++) {
+    TextView song = songViews.get(i);
+
+    boolean match = song.getText().toString()
+        .toLowerCase().contains(query);
+
+    boolean isFavorite = favoriteSongs.contains(
+        songs.get(i).toString()
+    );
+
+    song.setVisibility(
+        match && (!favoritesOnly || isFavorite)
+            ? View.VISIBLE : View.GONE
+    );
+}
             boolean match = song.getText().toString()
                     .toLowerCase().contains(query);
 
@@ -250,7 +293,26 @@ miniPlayer.addView(miniNext);
 root.addView(miniPlayer, new LinearLayout.LayoutParams(-1, 72));
 
 setContentView(root);
+loadFavorites();
 checkPermission();    }
+void loadFavorites() {
+    android.content.SharedPreferences prefs =
+        getSharedPreferences("ECHO_FAVORITES", MODE_PRIVATE);
+
+    favoriteSongs.clear();
+    favoriteSongs.addAll(
+        prefs.getStringSet("favorites", new HashSet<>())
+    );
+}
+
+void saveFavorites() {
+    android.content.SharedPreferences prefs =
+        getSharedPreferences("ECHO_FAVORITES", MODE_PRIVATE);
+
+    prefs.edit()
+        .putStringSet("favorites", new HashSet<>(favoriteSongs))
+        .apply();
+}
 
     void checkPermission() {
         String permission;
@@ -332,6 +394,26 @@ songViews.add(song);
                 params.setMargins(0, 5, 0, 5);
 
                 layout.addView(song, params);
+
+                Button favoriteButton = new Button(this);
+                String songKey = uri.toString();
+
+                favoriteButton.setText(
+                    favoriteSongs.contains(songKey) ? "❤️ FAVORITED" : "♡ FAVORITE"
+                );
+
+                favoriteButton.setOnClickListener(v -> {
+                    if (favoriteSongs.contains(songKey)) {
+                        favoriteSongs.remove(songKey);
+                        favoriteButton.setText("♡ FAVORITE");
+                    } else {
+                        favoriteSongs.add(songKey);
+                        favoriteButton.setText("❤️ FAVORITED");
+                    }
+                    saveFavorites();
+                });
+
+                layout.addView(favoriteButton);
             }
             cursor.close();
         }
