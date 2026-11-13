@@ -50,6 +50,8 @@ TextView dialogCurrentTime;
 TextView dialogTotalTime;
     Button playButton;
     int currentSong = -1;
+boolean isAudiusPlaying = false;
+int currentAudiusIndex = -1;
 boolean isShuffle = false;
 boolean favoritesOnly = false;
 ArrayList<String> playlistNames = new ArrayList<>();
@@ -648,6 +650,7 @@ if (dialogTotalTime != null) {
 };
 handler.removeCallbacks(progressUpdater);
 handler.post(progressUpdater);
+            isAudiusPlaying = false;
             currentSong = index;
 updateSongInfo(index);
             nowPlaying.setText("🎵 Playing song " + (index + 1));
@@ -659,6 +662,21 @@ miniPlayButton.setText("Ⅱ");
                     Toast.LENGTH_SHORT).show();
 }        }
 void updateSongInfo(int index) {
+    if (isAudiusPlaying && currentAudiusIndex >= 0
+            && currentAudiusIndex < onlineTitles.size()) {
+        String title = onlineTitles.get(currentAudiusIndex);
+        String artist = onlineArtists.get(currentAudiusIndex);
+
+        if (playerSongTitle != null) playerSongTitle.setText(title);
+        if (playerArtist != null) playerArtist.setText(artist);
+        if (albumArt != null) {
+            albumArt.setImageResource(android.R.drawable.ic_media_play);
+        }
+        nowPlaying.setText("🎵 " + title);
+        miniNowPlaying.setText("🎵 " + title);
+        return;
+    }
+
     String title = "Unknown title";
     String artist = "Unknown artist";
     long albumId = -1;
@@ -713,7 +731,7 @@ void updateSongInfo(int index) {
     miniNowPlaying.setText("🎵 " + title);
 }
 void showNowPlaying() {
-    if (currentSong < 0 || songs.isEmpty()) {
+    if (!isAudiusPlaying && (currentSong < 0 || songs.isEmpty())) {
         Toast.makeText(this, "Play a song first",
                 Toast.LENGTH_SHORT).show();
         return;
@@ -1059,6 +1077,8 @@ void playAudiusTrack(int index) {
         }
 
         currentSong = -1;
+        isAudiusPlaying = true;
+        currentAudiusIndex = index;
         player = new MediaPlayer();
 
         String trackId = audiusTrackIds.get(index);
@@ -1101,8 +1121,11 @@ void playOnlinePreview(int index) {
     try {
         if (player != null) {
             player.release();
+            player = null;
         }
 
+        isAudiusPlaying = false;
+        currentAudiusIndex = -1;
         currentSong = -1;
         player = new MediaPlayer();
 
