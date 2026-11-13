@@ -1,4 +1,4 @@
-package com.echo.music
+package com.echo.music;
 
 import android.app.Activity;
 import android.os.Bundle;
