@@ -36,6 +36,7 @@ HashMap<String, String> savedTrackTitles = new HashMap<>();
 HashMap<String, String> savedTrackArtists = new HashMap<>();
 HashMap<String, String> savedTrackArtwork = new HashMap<>();
 Set<String> favoriteSongs = new HashSet<>();
+ArrayList<String> recentlyPlayed = new ArrayList<>();
 LinearLayout onlineResultsLayout;
 EditText onlineSearchInput;
     LinearLayout layout;
@@ -162,6 +163,13 @@ onlineFavoritesButton.setBackgroundTintList(
 onlineFavoritesButton.setAllCaps(false);
 onlineFavoritesButton.setOnClickListener(v -> showOnlineFavorites());
 layout.addView(onlineFavoritesButton);
+
+Button recentButton = new Button(this);
+recentButton.setText("🕘 RECENTLY PLAYED");
+recentButton.setTextColor(Color.WHITE);
+recentButton.setAllCaps(false);
+recentButton.setOnClickListener(v -> showRecentlyPlayed());
+layout.addView(recentButton);
 
 Button createPlaylistButton = new Button(this);
 createPlaylistButton.setText("➕ CREATE PLAYLIST");
@@ -442,6 +450,7 @@ setContentView(root);
 loadFavorites();
 loadSavedTrackMetadata();
 loadPlaylists();
+loadRecentlyPlayed();
 // Online-only music mode
     }
 void loadFavorites() {
@@ -1297,6 +1306,18 @@ void playAudiusTrack(int index) {
 
         String trackId = audiusTrackIds.get(index);
 
+        savedTrackTitles.put(trackId, onlineTitles.get(index));
+        savedTrackArtists.put(trackId, onlineArtists.get(index));
+        savedTrackArtwork.put(trackId, onlineArtwork.get(index));
+
+        recentlyPlayed.remove(trackId);
+        recentlyPlayed.add(0, trackId);
+        if (recentlyPlayed.size() > 30) {
+            recentlyPlayed.remove(30);
+        }
+        saveRecentlyPlayed();
+        saveSavedTrackMetadata();
+
         String streamUrl =
             "https://discoveryprovider.audius.co/v1/tracks/"
             + URLEncoder.encode(trackId, "UTF-8")
@@ -1400,6 +1421,75 @@ void previousSong() {
         });
 
         return button;
+    }
+
+
+    void saveRecentlyPlayed() {
+        JSONArray data = new JSONArray();
+        for (String id : recentlyPlayed) data.put(id);
+
+        getSharedPreferences("ECHO_RECENTS", MODE_PRIVATE)
+            .edit().putString("recent", data.toString()).apply();
+    }
+
+    void loadRecentlyPlayed() {
+        try {
+            String raw = getSharedPreferences("ECHO_RECENTS", MODE_PRIVATE)
+                .getString("recent", "[]");
+            JSONArray data = new JSONArray(raw);
+            recentlyPlayed.clear();
+
+            for (int i = 0; i < data.length(); i++) {
+                recentlyPlayed.add(data.getString(i));
+            }
+        } catch (Exception e) {
+            android.util.Log.e("ECHO", "Recent load failed", e);
+        }
+    }
+
+    void showRecentlyPlayed() {
+        android.app.Dialog dialog = new android.app.Dialog(this);
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        list.setPadding(20, 20, 20, 20);
+        list.setBackgroundColor(Color.rgb(15, 15, 25));
+
+        TextView heading = new TextView(this);
+        heading.setText("RECENTLY PLAYED");
+        heading.setTextColor(Color.WHITE);
+        heading.setTextSize(22);
+        list.addView(heading);
+
+        for (String id : recentlyPlayed) {
+            String title = savedTrackTitles.get(id);
+            String artist = savedTrackArtists.get(id);
+            if (title == null) continue;
+
+            TextView item = new TextView(this);
+            item.setText("🎵 " + title + "\n" + artist + "\n▶ PLAY");
+            item.setTextColor(Color.WHITE);
+            item.setTextSize(17);
+            item.setPadding(15, 20, 15, 20);
+
+            item.setOnClickListener(v -> {
+                onlineTitles.clear();
+                onlineArtists.clear();
+                onlineArtwork.clear();
+                audiusTrackIds.clear();
+                onlineTitles.add(title);
+                onlineArtists.add(artist == null ? "Unknown Artist" : artist);
+                onlineArtwork.add(savedTrackArtwork.getOrDefault(id, ""));
+                audiusTrackIds.add(id);
+                playAudiusTrack(0);
+                dialog.dismiss();
+            });
+            list.addView(item);
+        }
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(list);
+        dialog.setContentView(scroll);
+        dialog.show();
     }
 
     void showOnlineFavorites() {
