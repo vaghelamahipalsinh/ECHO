@@ -16,6 +16,7 @@ import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Set;
 import android.text.TextWatcher;
 import android.text.Editable;
@@ -31,6 +32,9 @@ ArrayList<String> audiusTrackIds = new ArrayList<>();
 ArrayList<String> onlineTitles = new ArrayList<>();
 ArrayList<String> onlineArtists = new ArrayList<>();
 ArrayList<String> onlineArtwork = new ArrayList<>();
+HashMap<String, String> savedTrackTitles = new HashMap<>();
+HashMap<String, String> savedTrackArtists = new HashMap<>();
+HashMap<String, String> savedTrackArtwork = new HashMap<>();
 Set<String> favoriteSongs = new HashSet<>();
 LinearLayout onlineResultsLayout;
 EditText onlineSearchInput;
@@ -136,6 +140,11 @@ favoritesFilter.setOnClickListener(v -> {
 });
 
 layout.addView(favoritesFilter);
+
+Button onlineFavoritesButton = new Button(this);
+onlineFavoritesButton.setText("❤️ MY FAVORITES");
+onlineFavoritesButton.setOnClickListener(v -> showOnlineFavorites());
+layout.addView(onlineFavoritesButton);
 
 Button createPlaylistButton = new Button(this);
 createPlaylistButton.setText("➕ CREATE PLAYLIST");
@@ -316,8 +325,9 @@ root.addView(miniPlayer, new LinearLayout.LayoutParams(-1, 72));
 
 setContentView(root);
 loadFavorites();
+loadSavedTrackMetadata();
 loadPlaylists();
-checkPermission();    }
+// Online-only music mode    }
 void loadFavorites() {
     android.content.SharedPreferences prefs =
         getSharedPreferences("ECHO_FAVORITES", MODE_PRIVATE);
@@ -337,6 +347,52 @@ void saveFavorites() {
         .apply();
 }
 
+
+    void loadSavedTrackMetadata() {
+        android.content.SharedPreferences prefs =
+            getSharedPreferences("ECHO_TRACKS", MODE_PRIVATE);
+
+        try {
+            JSONObject data = new JSONObject(
+                prefs.getString("track_metadata", "{}")
+            );
+
+            java.util.Iterator<String> keys = data.keys();
+
+            while (keys.hasNext()) {
+                String id = keys.next();
+                JSONObject track = data.getJSONObject(id);
+
+                savedTrackTitles.put(id, track.optString("title", "Unknown"));
+                savedTrackArtists.put(id, track.optString("artist", "Unknown Artist"));
+                savedTrackArtwork.put(id, track.optString("artwork", ""));
+            }
+        } catch (Exception e) {
+            android.util.Log.e("ECHO", "Metadata load failed", e);
+        }
+    }
+
+    void saveSavedTrackMetadata() {
+        try {
+            JSONObject data = new JSONObject();
+
+            for (String id : savedTrackTitles.keySet()) {
+                JSONObject track = new JSONObject();
+                track.put("title", savedTrackTitles.get(id));
+                track.put("artist", savedTrackArtists.get(id));
+                track.put("artwork", savedTrackArtwork.get(id));
+                data.put(id, track);
+            }
+
+            getSharedPreferences("ECHO_TRACKS", MODE_PRIVATE)
+                .edit()
+                .putString("track_metadata", data.toString())
+                .apply();
+
+        } catch (Exception e) {
+            android.util.Log.e("ECHO", "Metadata save failed", e);
+        }
+    }
 
     void loadPlaylists() {
         android.content.SharedPreferences prefs =
@@ -1073,6 +1129,14 @@ void searchAudiusMusic() {
             onlineArtwork.addAll(artworks);
             audiusTrackIds.addAll(ids);
 
+            for (int i = 0; i < ids.size(); i++) {
+                String id = ids.get(i);
+                savedTrackTitles.put(id, titles.get(i));
+                savedTrackArtists.put(id, artists.get(i));
+                savedTrackArtwork.put(id, artworks.get(i));
+            }
+            saveSavedTrackMetadata();
+
             for (int i = 0; i < titles.size(); i++) {
                 final int index = i;
 
@@ -1088,6 +1152,7 @@ void searchAudiusMusic() {
                 item.setOnClickListener(v -> playAudiusTrack(index));
 
                 onlineResultsLayout.addView(item);
+                onlineResultsLayout.addView(createFavoriteButton("audius:" + ids.get(i)));
             }
 
             if (titles.isEmpty()) {
@@ -1194,5 +1259,93 @@ void previousSong() {
             player.release();
             player = null;
         }
+    }
+
+    Button createFavoriteButton(String trackId) {
+        Button button = new Button(this);
+
+        Runnable updateText = () -> button.setText(
+            favoriteSongs.contains(trackId)
+                ? "♥ FAVORITED"
+                : "♡ ADD TO FAVORITES"
+        );
+
+        updateText.run();
+        button.setAllCaps(false);
+
+        button.setOnClickListener(v -> {
+            if (favoriteSongs.contains(trackId)) {
+                favoriteSongs.remove(trackId);
+            } else {
+                favoriteSongs.add(trackId);
+            }
+            saveFavorites();
+            updateText.run();
+        });
+
+        return button;
+    }
+
+    void showOnlineFavorites() {
+        android.app.Dialog dialog = new android.app.Dialog(this);
+
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        list.setPadding(20, 20, 20, 20);
+        list.setBackgroundColor(Color.rgb(15, 15, 25));
+
+        TextView heading = new TextView(this);
+        heading.setText("❤️ MY FAVORITES");
+        heading.setTextColor(Color.WHITE);
+        heading.setTextSize(22);
+        list.addView(heading);
+
+        int count = 0;
+
+        for (String favoriteId : new HashSet<>(favoriteSongs)) {
+            if (!favoriteId.startsWith("audius:")) continue;
+
+            String id = favoriteId.substring(7);
+            String title = savedTrackTitles.get(id);
+            String artist = savedTrackArtists.get(id);
+
+            if (title == null) continue;
+
+            TextView item = new TextView(this);
+            item.setText("🎵 " + title + "\n" + artist + "\n▶ PLAY");
+            item.setTextColor(Color.WHITE);
+            item.setTextSize(17);
+            item.setPadding(15, 20, 15, 20);
+
+            item.setOnClickListener(v -> {
+                onlineTitles.clear();
+                onlineArtists.clear();
+                onlineArtwork.clear();
+                audiusTrackIds.clear();
+
+                onlineTitles.add(title);
+                onlineArtists.add(artist == null ? "Unknown Artist" : artist);
+                onlineArtwork.add(savedTrackArtwork.getOrDefault(id, ""));
+                audiusTrackIds.add(id);
+
+                playAudiusTrack(0);
+                dialog.dismiss();
+            });
+
+            list.addView(item);
+            count++;
+        }
+
+        if (count == 0) {
+            TextView empty = new TextView(this);
+            empty.setText("No online favorites saved yet.");
+            empty.setTextColor(Color.WHITE);
+            list.addView(empty);
+        }
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(list);
+        dialog.setContentView(scroll);
+        dialog.show();
     }
 }
