@@ -66,8 +66,9 @@ SeekBar seekBar;
 TextView currentTime, totalTime;
 android.os.Handler handler = new android.os.Handler();
 Runnable progressUpdater;
-    int bg = Color.rgb(10, 10, 18);
+    int bg = Color.rgb(18, 18, 18);
     int blue = Color.rgb(0, 180, 255);
+    int green = Color.rgb(30, 215, 96);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,24 +85,30 @@ Runnable progressUpdater;
 
         TextView logo = new TextView(this);
         logo.setText("ECHO 🎧");
-        logo.setTextSize(32);
-        logo.setTextColor(blue);
+        logo.setTextSize(34);
+        logo.setTextColor(green);
+        logo.setPadding(0, 10, 0, 8);
         logo.setTypeface(null, 1);
         layout.addView(logo);
 
         TextView heading = new TextView(this);
-        heading.setText("YOUR MUSIC. YOUR WORLD.")
-;
+        heading.setText("YOUR MUSIC. YOUR WORLD.");
+        heading.setTextSize(16);
+        heading.setTextColor(Color.LTGRAY);
+        heading.setTypeface(null, 1);
+        heading.setPadding(0, 5, 0, 15);
         EditText searchBar = new EditText(this);
         searchBar.setHint("🔍 Search your music...");
         searchBar.setHintTextColor(Color.GRAY);
         searchBar.setTextColor(Color.WHITE);
         searchBar.setSingleLine(true);
+        searchBar.setTextSize(16);
+        searchBar.setMinHeight(55);
         searchBar.setPadding(20, 15, 20, 15);
 
         GradientDrawable searchBg = new GradientDrawable();
-        searchBg.setColor(Color.rgb(28, 28, 42));
-        searchBg.setCornerRadius(30);
+        searchBg.setColor(Color.rgb(40, 40, 40));
+        searchBg.setCornerRadius(22);
         searchBar.setBackground(searchBg);
 
         LinearLayout.LayoutParams searchParams =
@@ -111,6 +118,11 @@ Runnable progressUpdater;
 
 Button themeButton = new Button(this);
 themeButton.setText("🎨 PREMIUM STYLES");
+themeButton.setTextColor(Color.WHITE);
+themeButton.setBackgroundTintList(
+    android.content.res.ColorStateList.valueOf(Color.rgb(45, 45, 45))
+);
+themeButton.setAllCaps(false);
 themeButton.setOnClickListener(v -> showThemeDialog());
 layout.addView(themeButton);
 
@@ -143,16 +155,31 @@ layout.addView(favoritesFilter);
 
 Button onlineFavoritesButton = new Button(this);
 onlineFavoritesButton.setText("❤️ MY FAVORITES");
+onlineFavoritesButton.setTextColor(Color.BLACK);
+onlineFavoritesButton.setBackgroundTintList(
+    android.content.res.ColorStateList.valueOf(green)
+);
+onlineFavoritesButton.setAllCaps(false);
 onlineFavoritesButton.setOnClickListener(v -> showOnlineFavorites());
 layout.addView(onlineFavoritesButton);
 
 Button createPlaylistButton = new Button(this);
 createPlaylistButton.setText("➕ CREATE PLAYLIST");
+createPlaylistButton.setTextColor(Color.WHITE);
+createPlaylistButton.setBackgroundTintList(
+    android.content.res.ColorStateList.valueOf(Color.rgb(45, 45, 45))
+);
+createPlaylistButton.setAllCaps(false);
 createPlaylistButton.setOnClickListener(v -> showCreatePlaylistDialog());
 layout.addView(createPlaylistButton);
 
 Button viewPlaylistsButton = new Button(this);
 viewPlaylistsButton.setText("📂 MY PLAYLISTS");
+viewPlaylistsButton.setTextColor(Color.WHITE);
+viewPlaylistsButton.setBackgroundTintList(
+    android.content.res.ColorStateList.valueOf(Color.rgb(45, 45, 45))
+);
+viewPlaylistsButton.setAllCaps(false);
 viewPlaylistsButton.setOnClickListener(v -> showPlaylistsDialog());
 layout.addView(viewPlaylistsButton);
 
@@ -187,8 +214,9 @@ searchBar.addTextChangedListener(new TextWatcher() {
 
 TextView onlineHeading = new TextView(this);
 onlineHeading.setText("🌐 ONLINE MUSIC");
-onlineHeading.setTextColor(blue);
-onlineHeading.setTextSize(22);
+onlineHeading.setTextColor(green);
+onlineHeading.setTextSize(24);
+onlineHeading.setTypeface(null, 1);
 onlineHeading.setPadding(0, 25, 0, 15);
 layout.addView(onlineHeading);
 
@@ -201,6 +229,11 @@ layout.addView(onlineSearchInput);
 
 Button onlineSearchButton = new Button(this);
 onlineSearchButton.setText("SEARCH FULL SONGS");
+onlineSearchButton.setTextColor(Color.BLACK);
+onlineSearchButton.setBackgroundTintList(
+    android.content.res.ColorStateList.valueOf(green)
+);
+onlineSearchButton.setAllCaps(false);
 onlineSearchButton.setOnClickListener(v -> searchAudiusMusic());
 layout.addView(onlineSearchButton);
 
@@ -322,6 +355,39 @@ miniNext.setOnClickListener(v -> nextSong());
 miniPlayer.addView(miniNext);
 
 root.addView(miniPlayer, new LinearLayout.LayoutParams(-1, 72));
+
+LinearLayout bottomNav = new LinearLayout(this);
+bottomNav.setOrientation(LinearLayout.HORIZONTAL);
+bottomNav.setGravity(Gravity.CENTER);
+bottomNav.setBackgroundColor(Color.rgb(24, 24, 24));
+
+Button homeNav = new Button(this);
+homeNav.setText("⌂ HOME");
+homeNav.setTextColor(green);
+homeNav.setAllCaps(false);
+
+Button searchNav = new Button(this);
+searchNav.setText("⌕ SEARCH");
+searchNav.setTextColor(Color.WHITE);
+searchNav.setAllCaps(false);
+
+Button libraryNav = new Button(this);
+libraryNav.setText("♫ LIBRARY");
+libraryNav.setTextColor(Color.WHITE);
+libraryNav.setAllCaps(false);
+
+LinearLayout.LayoutParams navParams =
+        new LinearLayout.LayoutParams(0, 58, 1f);
+
+bottomNav.addView(homeNav, navParams);
+bottomNav.addView(searchNav, new LinearLayout.LayoutParams(0, 58, 1f));
+bottomNav.addView(libraryNav, new LinearLayout.LayoutParams(0, 58, 1f));
+
+homeNav.setOnClickListener(v -> scroll.smoothScrollTo(0, 0));
+searchNav.setOnClickListener(v -> scroll.smoothScrollTo(0, onlineHeading.getTop()));
+libraryNav.setOnClickListener(v -> scroll.smoothScrollTo(0, onlineFavoritesButton.getTop()));
+
+root.addView(bottomNav, new LinearLayout.LayoutParams(-1, 58));
 
 setContentView(root);
 loadFavorites();
