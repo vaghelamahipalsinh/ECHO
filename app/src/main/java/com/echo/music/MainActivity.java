@@ -220,6 +220,55 @@ onlineHeading.setTypeface(null, 1);
 onlineHeading.setPadding(0, 25, 0, 15);
 layout.addView(onlineHeading);
 
+TextView exploreHeading = new TextView(this);
+exploreHeading.setText("🎧 EXPLORE MUSIC");
+exploreHeading.setTextColor(Color.WHITE);
+exploreHeading.setTextSize(20);
+exploreHeading.setTypeface(null, 1);
+exploreHeading.setPadding(0, 15, 0, 12);
+layout.addView(exploreHeading);
+
+LinearLayout categoryRow = new LinearLayout(this);
+categoryRow.setOrientation(LinearLayout.HORIZONTAL);
+
+String[] categories = {
+    "ગુજરાતી\nGUJARATI",
+    "🇮🇳 HINDI",
+    "🌍 ENGLISH"
+};
+
+String[] queries = {
+    "Gujarati songs",
+    "Hindi songs",
+    "English songs"
+};
+
+for (int i = 0; i < categories.length; i++) {
+    final String query = queries[i];
+
+    Button card = new Button(this);
+    card.setText(categories[i]);
+    card.setTextColor(green);
+    card.setTextSize(12);
+    card.setAllCaps(false);
+    card.setBackgroundTintList(
+        android.content.res.ColorStateList.valueOf(Color.rgb(40, 40, 40))
+    );
+
+    LinearLayout.LayoutParams params =
+        new LinearLayout.LayoutParams(0, 90, 1f);
+    params.setMargins(4, 4, 4, 4);
+
+    categoryRow.addView(card, params);
+
+    card.setOnClickListener(v -> {
+        onlineSearchInput.setText(query);
+        searchAudiusMusic();
+    });
+}
+
+layout.addView(categoryRow);
+
 onlineSearchInput = new EditText(this);
 onlineSearchInput.setHint("Search online songs...");
 onlineSearchInput.setTextColor(Color.WHITE);
