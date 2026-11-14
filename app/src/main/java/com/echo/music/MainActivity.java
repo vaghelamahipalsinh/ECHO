@@ -327,7 +327,8 @@ setContentView(root);
 loadFavorites();
 loadSavedTrackMetadata();
 loadPlaylists();
-// Online-only music mode    }
+// Online-only music mode
+    }
 void loadFavorites() {
     android.content.SharedPreferences prefs =
         getSharedPreferences("ECHO_FAVORITES", MODE_PRIVATE);
